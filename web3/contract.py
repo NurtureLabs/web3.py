@@ -1136,20 +1136,20 @@ class ContractEvent:
 
     @combomethod
     def processReceipt(
-        self, txn_receipt: TxReceipt, errors: EventLogErrorFlags = WARN
+        self, event_topic, txn_receipt: TxReceipt, errors: EventLogErrorFlags = WARN
     ) -> Iterable[EventData]:
-        return self._parse_logs(txn_receipt, errors)
+        return self._parse_logs(event_topic, txn_receipt, errors)
 
     @to_tuple
     def _parse_logs(
-        self, txn_receipt: TxReceipt, errors: EventLogErrorFlags
+        self, event_topic, txn_receipt: TxReceipt, errors: EventLogErrorFlags
     ) -> Iterable[EventData]:
         try:
             errors.name
         except AttributeError:
             raise AttributeError(f'Error flag must be one of: {EventLogErrorFlags.flag_options()}')
 
-        for log in txn_receipt['logs']:
+        for log in filter(lambda log: event_topic in log['topics'], txn_receipt['logs']):
             try:
                 rich_log = get_event_data(self.web3.codec, self.abi, log)
             except (MismatchedABI, LogTopicError, InvalidEventABI, TypeError) as e:
