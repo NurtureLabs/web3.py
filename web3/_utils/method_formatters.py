@@ -566,7 +566,7 @@ def raise_solidity_error_on_revert(response: RPCResponse) -> RPCResponse:
         raise ContractLogicError(response['error']['message'])
 
     # Geth Revert without error message case:
-    if 'execution reverted' in response['error'].get('message'):
+    if 'execution reverted' in response['error'].get('message', ''):
         raise ContractLogicError('execution reverted')
 
     return response
