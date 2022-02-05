@@ -58,12 +58,11 @@ You should now be set up to run the contract deployment example below:
     ...             greeting = _greeting;
     ...         }
     ...
-    ...         function greet() view public returns (string memory) {
+    .. .        function greet() view public returns (string memory) {
     ...             return greeting;
     ...         }
     ...     }
-    ...     ''',
-    ...     output_values=['abi', 'bin']
+    ...     '''
     ... )
 
     # retrieve the contract interface
@@ -700,8 +699,8 @@ Taking the following contract code as an example:
 
     >>> array_contract.functions.getBytes2Value().call()
     [b'b\x00']
-    >>> array_contract.functions.setBytes2Value([b'a']).transact({'gas': 420000, 'gasPrice': Web3.toWei(1, 'gwei')})
-    HexBytes('0xc5377ba25224bd763ceedc0ee455cc14fc57b23dbc6b6409f40a557a009ff5f4')
+    >>> array_contract.functions.setBytes2Value([b'a']).transact({'gas': 420000, 'gasPrice': 21000})
+    HexBytes('0x89f9b3a00651e406c568e85c1d2336c66b4ec40ba82c5e72726fbd072230a41c')
     >>> array_contract.functions.getBytes2Value().call()
     [b'a\x00']
     >>> w3.enable_strict_bytes_type_checking()
@@ -899,14 +898,13 @@ Methods
 
     .. code-block:: python
 
-        >>> math_contract.functions.increment(5).buildTransaction({'maxFeePerGas': 2000000000, 'maxPriorityFeePerGas': 1000000000})
+        >>> math_contract.functions.increment(5).buildTransaction({'gasPrice': 21000000000})
         {
             'to': '0x6Bc272FCFcf89C14cebFC57B8f1543F5137F97dE',
             'data': '0x7cf5dab00000000000000000000000000000000000000000000000000000000000000005',
             'value': 0,
             'gas': 43242,
-            'maxFeePerGas': 2000000000,
-            'maxPriorityFeePerGas': 1000000000,
+            'gasPrice': 21000000000,
             'chainId': 1
         }
 
@@ -1079,8 +1077,8 @@ Event Log Object
     alice, bob = w3.eth.accounts[0], w3.eth.accounts[1]
     assert alice == '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', alice
     assert bob == '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', bob
-    tx_hash = my_token_contract.constructor(1000000).transact({'from': alice, 'gas': 899000, 'gasPrice': Web3.toWei(1, 'gwei')})
-    assert tx_hash == HexBytes('0x49e3da72a95e4074a9eaea7b438c73ca154627d317e58abeae914e3769a15044'), tx_hash
+    tx_hash = my_token_contract.constructor(1000000).transact({'from': alice, 'gas': 899000, 'gasPrice': 320000})
+    assert tx_hash == HexBytes('0x611aa2d5c3e51f08d0665c4529c5520ed32520d8a48ba2cf2aff3f2fce3f26e4'), tx_hash
     txn_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     assert txn_receipt['contractAddress'] == '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b', txn_receipt['contractAddress']
     contract_address = txn_receipt['contractAddress']
@@ -1088,59 +1086,59 @@ Event Log Object
     total_supply = contract.functions.totalSupply().call()
     decimals = 10 ** 18
     assert total_supply == 1000000 * decimals, total_supply
-    tx_hash = contract.functions.transfer(alice, 10).transact({'gas': 899000, 'gasPrice': Web3.toWei(1, 'gwei')})
+    tx_hash = contract.functions.transfer(alice, 10).transact({'gas': 899000, 'gasPrice': 200000})
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
 .. doctest:: createFilter
 
-    >>> transfer_filter = my_token_contract.events.Transfer.createFilter(fromBlock="0x0", argument_filters={'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'})
-    >>> transfer_filter.get_new_entries()
-    [AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'value': 10}),
-     'event': 'Transfer',
-     'logIndex': 0,
-     'transactionIndex': 0,
-     'transactionHash': HexBytes('0x9da859237e7259832b913d51cb128c8d73d1866056f7a41b52003c953e749678'),
-     'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
-     'blockHash': HexBytes('...'),
-     'blockNumber': 2})]
-    >>> transfer_filter.get_new_entries()
-    []
-    >>> tx_hash = contract.functions.transfer(alice, 10).transact({'gas': 899000, 'gasPrice': 674302241})
-    >>> tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    >>> transfer_filter.get_new_entries()
-    [AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'value': 10}),
-     'event': 'Transfer',
-     'logIndex': 0,
-     'transactionIndex': 0,
-     'transactionHash': HexBytes('0xa23e7ef4d2692c5cf34ee99123c9c73099e9c3b68c7850f91c1cbcb91ac327e0'),
-     'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
-     'blockHash': HexBytes('...'),
-     'blockNumber': 3})]
-    >>> transfer_filter.get_all_entries()
-    [AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'value': 10}),
-     'event': 'Transfer',
-     'logIndex': 0,
-     'transactionIndex': 0,
-     'transactionHash': HexBytes('0x9da859237e7259832b913d51cb128c8d73d1866056f7a41b52003c953e749678'),
-     'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
-     'blockHash': HexBytes('...'),
-     'blockNumber': 2}),
-     AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-     'value': 10}),
-     'event': 'Transfer',
-     'logIndex': 0,
-     'transactionIndex': 0,
-     'transactionHash': HexBytes('0xa23e7ef4d2692c5cf34ee99123c9c73099e9c3b68c7850f91c1cbcb91ac327e0'),
-     'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
-     'blockHash': HexBytes('...'),
-     'blockNumber': 3})]
+     >>> transfer_filter = my_token_contract.events.Transfer.createFilter(fromBlock="0x0", argument_filters={'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'})
+     >>> transfer_filter.get_new_entries()
+     [AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'value': 10}),
+      'event': 'Transfer',
+      'logIndex': 0,
+      'transactionIndex': 0,
+      'transactionHash': HexBytes('0x0005643c2425552308b4a28814a4dedafb5d340a811b3d2b1c019b290ffd7410'),
+      'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
+      'blockHash': HexBytes('...'),
+      'blockNumber': 2})]
+     >>> transfer_filter.get_new_entries()
+     []
+     >>> tx_hash = contract.functions.transfer(alice, 10).transact({'gas': 899000, 'gasPrice': 200000})
+     >>> tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+     >>> transfer_filter.get_new_entries()
+     [AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'value': 10}),
+      'event': 'Transfer',
+      'logIndex': 0,
+      'transactionIndex': 0,
+      'transactionHash': HexBytes('0xea111a49b82b0a0729d49f9ad924d8f87405d01e3fa87463cf2903848aacf7d9'),
+      'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
+      'blockHash': HexBytes('...'),
+      'blockNumber': 3})]
+     >>> transfer_filter.get_all_entries()
+     [AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'value': 10}),
+      'event': 'Transfer',
+      'logIndex': 0,
+      'transactionIndex': 0,
+      'transactionHash': HexBytes('0x0005643c2425552308b4a28814a4dedafb5d340a811b3d2b1c019b290ffd7410'),
+      'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
+      'blockHash': HexBytes('...'),
+      'blockNumber': 2}),
+      AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      'value': 10}),
+      'event': 'Transfer',
+      'logIndex': 0,
+      'transactionIndex': 0,
+      'transactionHash': HexBytes('0xea111a49b82b0a0729d49f9ad924d8f87405d01e3fa87463cf2903848aacf7d9'),
+      'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
+      'blockHash': HexBytes('...'),
+      'blockNumber': 3})]
 
 Utils
 -----

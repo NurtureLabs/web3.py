@@ -27,7 +27,7 @@ The ``web3.pm`` object exposes methods to interact with Packages as defined by `
 
    .. code-block:: python
 
-      >>> w3.enable_unstable_package_management_api()
+      >>> web3.enable_unstable_package_management_api()
       >>> w3.pm
       <web3.pm.PM at 0x....>
 

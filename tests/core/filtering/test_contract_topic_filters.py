@@ -6,82 +6,6 @@ from hypothesis import (
     strategies as st,
 )
 
-from web3 import Web3
-from web3._utils.module_testing.emitter_contract import (
-    CONTRACT_EMITTER_ABI,
-    CONTRACT_EMITTER_CODE,
-    CONTRACT_EMITTER_RUNTIME,
-)
-from web3.middleware import (
-    local_filter_middleware,
-)
-from web3.providers.eth_tester import (
-    EthereumTesterProvider,
-)
-
-
-@pytest.fixture(
-    scope='module',
-    params=[True, False],
-    ids=["local_filter_middleware", "node_based_filter"])
-def web3(request):
-    use_filter_middleware = request.param
-    provider = EthereumTesterProvider()
-    w3 = Web3(provider)
-    if use_filter_middleware:
-        w3.middleware_onion.add(local_filter_middleware)
-    return w3
-
-
-@pytest.fixture(autouse=True)
-def wait_for_mining_start(web3, wait_for_block):
-    wait_for_block(web3)
-
-
-@pytest.fixture(scope="module")
-def EMITTER_CODE():
-    return CONTRACT_EMITTER_CODE
-
-
-@pytest.fixture(scope="module")
-def EMITTER_RUNTIME():
-    return CONTRACT_EMITTER_RUNTIME
-
-
-@pytest.fixture(scope="module")
-def EMITTER_ABI():
-    return CONTRACT_EMITTER_ABI
-
-
-@pytest.fixture(scope="module")
-def EMITTER(EMITTER_CODE,
-            EMITTER_RUNTIME,
-            EMITTER_ABI):
-    return {
-        'bytecode': EMITTER_CODE,
-        'bytecode_runtime': EMITTER_RUNTIME,
-        'abi': EMITTER_ABI,
-    }
-
-
-@pytest.fixture(scope="module")
-def Emitter(web3, EMITTER):
-    return web3.eth.contract(**EMITTER)
-
-
-@pytest.fixture(scope="module")
-def emitter(web3, Emitter, wait_for_transaction, wait_for_block, address_conversion_func):
-    wait_for_block(web3)
-    deploy_txn_hash = Emitter.constructor().transact({'gas': 10000000})
-    deploy_receipt = wait_for_transaction(web3, deploy_txn_hash)
-    contract_address = address_conversion_func(deploy_receipt['contractAddress'])
-
-    bytecode = web3.eth.get_code(contract_address)
-    assert bytecode == Emitter.bytecode_runtime
-    _emitter = Emitter(address=contract_address)
-    assert _emitter.address == contract_address
-    return _emitter
-
 
 def not_empty_string(x):
     return x != ''
@@ -134,6 +58,14 @@ def array_values(draw):
     return (matching, non_matching)
 
 
+def clear_chain_state(web3, snapshot):
+    """Clear chain state
+    Hypothesis doesn't allow function scoped fixtures to re-run between test runs
+    so chain state needs to be explicitly cleared
+    """
+    web3.provider.ethereum_tester.revert_to_snapshot(snapshot)
+
+
 @pytest.mark.parametrize('api_style', ('v4', 'build_filter'))
 @given(vals=dynamic_values())
 @settings(max_examples=5, deadline=None)
@@ -141,9 +73,13 @@ def test_topic_filters_with_dynamic_arguments(
         web3,
         emitter,
         wait_for_transaction,
+        emitter_event_ids,
         create_filter,
         api_style,
+        tester_snapshot,
         vals):
+    clear_chain_state(web3, tester_snapshot)
+
     if api_style == 'build_filter':
         filter_builder = emitter.events.LogDynamicArgs.build_filter()
         filter_builder.args['arg0'].match_single(vals['matching'])
@@ -157,14 +93,10 @@ def test_topic_filters_with_dynamic_arguments(
     txn_hashes = [
         emitter.functions.logDynamicArgs(
             arg0=vals['matching'],
-            arg1=vals['matching']).transact({
-                'maxFeePerGas': 10 ** 9, 'maxPriorityFeePerGas': 10 ** 9, 'gas': 60000
-            }),
+            arg1=vals['matching']).transact({'gasPrice': 1, 'gas': 60000, 'nonce': 0}),
         emitter.functions.logDynamicArgs(
             arg0=vals['non_matching'][0],
-            arg1=vals['non_matching'][0]).transact({
-                'maxFeePerGas': 10 ** 9, 'maxPriorityFeePerGas': 10 ** 9, 'gas': 60000
-            })
+            arg1=vals['non_matching'][0]).transact({'gasPrice': 1, 'gas': 60000, 'nonce': 1})
     ]
 
     for txn_hash in txn_hashes:
@@ -184,10 +116,14 @@ def test_topic_filters_with_fixed_arguments(
         emitter,
         Emitter,
         wait_for_transaction,
+        emitter_event_ids,
         call_as_instance,
         create_filter,
         api_style,
+        tester_snapshot,
         vals):
+    clear_chain_state(web3, tester_snapshot)
+
     if api_style == 'build_filter':
         filter_builder = emitter.events.LogQuadrupleWithIndex.build_filter()
         filter_builder.args['arg0'].match_single(vals['matching'][0])
@@ -210,17 +146,13 @@ def test_topic_filters_with_fixed_arguments(
         arg0=vals['matching'][0],
         arg1=vals['matching'][1],
         arg2=vals['matching'][2],
-        arg3=vals['matching'][3]).transact({
-            'maxFeePerGas': 10 ** 9, 'maxPriorityFeePerGas': 10 ** 9, 'gas': 60000
-        }))
+        arg3=vals['matching'][3]).transact({'gasPrice': 1, 'gas': 60000, 'nonce': 0}))
     txn_hashes.append(emitter.functions.logQuadruple(
         which=11,
         arg0=vals['non_matching'][0],
         arg1=vals['non_matching'][1],
         arg2=vals['non_matching'][2],
-        arg3=vals['non_matching'][3]).transact({
-            'maxFeePerGas': 10 ** 9, 'maxPriorityFeePerGas': 10 ** 9, 'gas': 60000
-        }))
+        arg3=vals['non_matching'][3]).transact({'gasPrice': 1, 'gas': 60000, 'nonce': 1}))
 
     for txn_hash in txn_hashes:
         wait_for_transaction(web3, txn_hash)
@@ -238,10 +170,14 @@ def test_topic_filters_with_list_arguments(
         web3,
         emitter,
         wait_for_transaction,
+        emitter_event_ids,
         call_as_instance,
         create_filter,
         api_style,
+        tester_snapshot,
         vals):
+    clear_chain_state(web3, tester_snapshot)
+
     matching, non_matching = vals
 
     if api_style == 'build_filter':
@@ -251,10 +187,10 @@ def test_topic_filters_with_list_arguments(
         txn_hashes = []
         txn_hashes.append(emitter.functions.logListArgs(
             arg0=matching,
-            arg1=matching).transact({'maxFeePerGas': 10 ** 9, 'maxPriorityFeePerGas': 10 ** 9}))
+            arg1=matching).transact({'gasPrice': 1, 'nonce': 0}))
         txn_hashes.append(emitter.functions.logListArgs(
             arg0=non_matching,
-            arg1=non_matching).transact({'maxFeePerGas': 10 ** 9, 'maxPriorityFeePerGas': 10 ** 9}))
+            arg1=non_matching).transact({'gasPrice': 1, 'nonce': 1}))
 
         for txn_hash in txn_hashes:
             wait_for_transaction(web3, txn_hash)
@@ -264,6 +200,6 @@ def test_topic_filters_with_list_arguments(
         assert log_entries[0]['transactionHash'] == txn_hashes[0]
     else:
         with pytest.raises(TypeError):
-            create_filter(emitter, [
+            event_filter = create_filter(emitter, [
                 'LogListArgs', {
                     'filter': {"arg0": matching}}])

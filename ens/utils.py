@@ -1,12 +1,14 @@
+import copy
 import datetime
+import functools
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Collection,
     Optional,
-    Sequence,
-    Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -47,9 +49,6 @@ if TYPE_CHECKING:
     from web3.providers import (  # noqa: F401
         BaseProvider,
     )
-    from web3.types import (  # noqa: F401
-        Middleware,
-    )
 
 
 def Web3() -> Type['_Web3']:
@@ -57,16 +56,25 @@ def Web3() -> Type['_Web3']:
     return Web3Main
 
 
-def init_web3(
-    provider: 'BaseProvider' = cast('BaseProvider', default),
-    middlewares: Optional[Sequence[Tuple['Middleware', str]]] = None,
-) -> '_Web3':
+TFunc = TypeVar("TFunc", bound=Callable[..., Any])
+
+
+def dict_copy(func: TFunc) -> TFunc:
+    "copy dict keyword args, to avoid modifying caller's copy"
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> TFunc:
+        copied_kwargs = copy.deepcopy(kwargs)
+        return func(*args, **copied_kwargs)
+    return cast(TFunc, wrapper)
+
+
+def init_web3(provider: 'BaseProvider' = cast('BaseProvider', default)) -> '_Web3':
     from web3 import Web3 as Web3Main
 
     if provider is default:
         w3 = Web3Main(ens=None)
     else:
-        w3 = Web3Main(provider, middlewares, ens=None)
+        w3 = Web3Main(provider, ens=None)
 
     return customize_web3(w3)
 
@@ -74,15 +82,11 @@ def init_web3(
 def customize_web3(w3: '_Web3') -> '_Web3':
     from web3.middleware import make_stalecheck_middleware
 
-    if w3.middleware_onion.get('name_to_address'):
-        w3.middleware_onion.remove('name_to_address')
-
-    if not w3.middleware_onion.get('stalecheck'):
-        w3.middleware_onion.add(
-            make_stalecheck_middleware(ACCEPTABLE_STALE_HOURS * 3600),
-            name='stalecheck'
-        )
-
+    w3.middleware_onion.remove('name_to_address')
+    w3.middleware_onion.add(
+        make_stalecheck_middleware(ACCEPTABLE_STALE_HOURS * 3600),
+        name='stalecheck',
+    )
     return w3
 
 

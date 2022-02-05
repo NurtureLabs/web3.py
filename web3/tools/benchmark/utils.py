@@ -1,4 +1,3 @@
-import asyncio
 import signal
 import socket
 import time
@@ -41,7 +40,7 @@ async def wait_for_aiohttp(endpoint_uri: str, timeout: int = 60) -> None:
             async with aiohttp.ClientSession() as session:
                 await session.get(endpoint_uri)
         except aiohttp.client_exceptions.ClientConnectorError:
-            await asyncio.sleep(0.01)
+            time.sleep(0.01)
         else:
             break
 

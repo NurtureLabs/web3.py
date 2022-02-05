@@ -1,4 +1,4 @@
-pragma solidity ^0.8.11;
+pragma solidity ^0.4.21;
 
 
 contract Emitter {
@@ -11,6 +11,7 @@ contract Emitter {
     event LogString(string v);
     event LogBytes(bytes v);
 
+    // Indexed
     event LogSingleWithIndex(uint indexed arg0);
     event LogSingleAnonymous(uint indexed arg0) anonymous;
     event LogDoubleWithIndex(uint arg0, uint indexed arg1);
@@ -21,16 +22,6 @@ contract Emitter {
     event LogListArgs(bytes2[] indexed arg0, bytes2[] arg1);
     event LogAddressIndexed(address indexed arg0, address arg1);
     event LogAddressNotIndexed(address arg0, address arg1);
-
-    struct NestedTestTuple {
-        uint c;
-    }
-    struct TestTuple {
-        uint a;
-        uint b;
-        NestedTestTuple nested;
-    }
-    event LogStructArgs(uint arg0, TestTuple arg1);
 
     enum WhichEvent {
         LogAnonymous,
@@ -50,8 +41,7 @@ contract Emitter {
         LogDynamicArgs,
         LogListArgs,
         LogAddressIndexed,
-        LogAddressNotIndexed,
-        LogStructArgs
+        LogAddressNotIndexed
     }
 
     function logNoArgs(WhichEvent which) public {
@@ -86,11 +76,11 @@ contract Emitter {
         else revert("Didn't match any allowable event index");
     }
 
-    function logDynamicArgs(string memory arg0, string memory arg1) public {
+    function logDynamicArgs(string arg0, string arg1) public {
         emit LogDynamicArgs(arg0, arg1);
     }
 
-    function logListArgs(bytes2[] memory arg0, bytes2[] memory arg1) public {
+    function logListArgs(bytes2[] arg0, bytes2[] arg1) public {
         emit LogListArgs(arg0, arg1);
     }
 
@@ -102,16 +92,11 @@ contract Emitter {
         emit LogAddressNotIndexed(arg0, arg1);
     }
 
-    function logBytes(bytes memory v) public {
+    function logBytes(bytes v) public {
         emit LogBytes(v);
     }
 
-    function logString(string memory v) public {
+    function logString(string v) public {
         emit LogString(v);
     }
-
-    function logStruct(uint arg0, TestTuple memory arg1) public {
-        emit LogStructArgs(arg0, arg1);
-    }
 }
-

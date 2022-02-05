@@ -186,7 +186,6 @@ class TransactionFilter(Filter):
 class LogFilter(Filter):
     data_filter_set = None
     data_filter_set_regex = None
-    data_filter_set_function = None
     log_entry_formatter = None
     filter_params: FilterParams = None
     builder: EventFilterBuilder = None

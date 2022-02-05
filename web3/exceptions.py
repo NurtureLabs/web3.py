@@ -228,17 +228,8 @@ class InvalidTransaction(Exception):
 
 class TransactionTypeMismatch(InvalidTransaction):
     """
-    Raised when legacy transaction values are used alongside dynamic fee (EIP-1559) transaction
-    values.
+    Raised when legacy transaction variables are used alongside EIP 1559 variables.
     """
     def __init__(self) -> None:
         message = "Found legacy and EIP 1559 transaction values."
         super().__init__(message)
-
-
-class BadResponseFormat(ValueError, KeyError):
-    # Inherits from KeyError and ValueError for backwards compatibility
-    """
-    Raised when a JSON-RPC response comes back in an unexpected format
-    """
-    pass

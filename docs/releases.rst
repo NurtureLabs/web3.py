@@ -3,256 +3,10 @@ Release Notes
 
 .. towncrier release notes start
 
-v5.27.0 (2022-01-31)
---------------------
-
-Features
-~~~~~~~~
-
-- Added Async functions for Geth TxPool (`#1413
-  <https://github.com/ethereum/web3.py/issues/1413>`__)
-- external modules are no longer required to inherit from the
-  ``web3.module.Module`` class (`#2304
-  <https://github.com/ethereum/web3.py/issues/2304>`__)
-- Add async `eth.get_logs` method (`#2310
-  <https://github.com/ethereum/web3.py/issues/2310>`__)
-- add Async access to `default_account` and `default_block` (`#2315
-  <https://github.com/ethereum/web3.py/issues/2315>`__)
-- Update eth-tester and eth-account dependencies to pull in bugfix from
-  eth-keys (`#2320 <https://github.com/ethereum/web3.py/issues/2320>`__)
-
-
-Bugfixes
-~~~~~~~~
-
-- Fixed issues with parsing tuples and nested tuples in event logs (`#2211
-  <https://github.com/ethereum/web3.py/issues/2211>`__)
-- In ENS the contract function to resolve an ENS address was being called twice
-  in error. One of those calls was removed. (`#2318
-  <https://github.com/ethereum/web3.py/issues/2318>`__)
-- ``to_hexbytes`` block formatters no longer throw when value is ``None``
-  (`#2321 <https://github.com/ethereum/web3.py/issues/2321>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- fix typo in `eth.account` docs (`#2111
-  <https://github.com/ethereum/web3.py/issues/2111>`__)
-- explicitly add `output_values` to contracts example (`#2293
-  <https://github.com/ethereum/web3.py/issues/2293>`__)
-- update imports for `AsyncHTTPProvider` sample code (`#2302
-  <https://github.com/ethereum/web3.py/issues/2302>`__)
-- fixed broken link to filter schema (`#2303
-  <https://github.com/ethereum/web3.py/issues/2303>`__)
-- add github link to the main docs landing page (`#2313
-  <https://github.com/ethereum/web3.py/issues/2313>`__)
-- fix typos and update referenced `geth` version (`#2326
-  <https://github.com/ethereum/web3.py/issues/2326>`__)
-
-
-Misc
-~~~~
-
-- `#2217 <https://github.com/ethereum/web3.py/issues/2217>`__
-
-
-v5.26.0 (2022-01-06)
---------------------
-
-Features
-~~~~~~~~
-
-- Add ``middlewares`` property to ``NamedElementOnion`` /
-  ``web3.middleware_onion``. Returns current middlewares in proper order for
-  importing into a new ``Web3`` instance (`#2239
-  <https://github.com/ethereum/web3.py/issues/2239>`__)
-- Add async ``eth.hashrate`` method (`#2243
-  <https://github.com/ethereum/web3.py/issues/2243>`__)
-- Add async ``eth.chain_id`` method (`#2251
-  <https://github.com/ethereum/web3.py/issues/2251>`__)
-- Add async ``eth.mining`` method (`#2252
-  <https://github.com/ethereum/web3.py/issues/2252>`__)
-- Add async ``eth.get_transaction_receipt`` and
-  ``eth.wait_for_transaction_receipt`` methods (`#2265
-  <https://github.com/ethereum/web3.py/issues/2265>`__)
-- Add async `eth.accounts` method (`#2284
-  <https://github.com/ethereum/web3.py/issues/2284>`__)
-- Support for attaching external modules to the ``Web3`` instance when
-  instantiating the ``Web3`` instance, via the ``external_modules`` argument,
-  or via the new ``attach_modules()`` method (`#2288
-  <https://github.com/ethereum/web3.py/issues/2288>`__)
-
-
-Bugfixes
-~~~~~~~~
-
-- Fixed doctest that wasn't running in ``docs/contracts.rst`` (`#2213
-  <https://github.com/ethereum/web3.py/issues/2213>`__)
-- Key mapping fix to eth-tester middleware for access list storage keys (`#2224
-  <https://github.com/ethereum/web3.py/issues/2224>`__)
-- Inherit ``Web3`` instance middlewares when instantiating ``ENS`` with
-  ``ENS.fromWeb3()`` method (`#2239
-  <https://github.com/ethereum/web3.py/issues/2239>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Fix example docs to show a TransactionNotFound error, instead of None (`#2199
-  <https://github.com/ethereum/web3.py/issues/2199>`__)
-- fix typo in ethpm.rst (`#2277
-  <https://github.com/ethereum/web3.py/issues/2277>`__)
-- Clarify provider usage in Quickstart docs (`#2287
-  <https://github.com/ethereum/web3.py/issues/2287>`__)
-- Address common BSC usage question (`#2289
-  <https://github.com/ethereum/web3.py/issues/2289>`__)
-
-
-Misc
-~~~~
-
-- `#1729 <https://github.com/ethereum/web3.py/issues/1729>`__, `#2233
-  <https://github.com/ethereum/web3.py/issues/2233>`__, `#2242
-  <https://github.com/ethereum/web3.py/issues/2242>`__, `#2260
-  <https://github.com/ethereum/web3.py/issues/2260>`__, `#2261
-  <https://github.com/ethereum/web3.py/issues/2261>`__, `#2283
-  <https://github.com/ethereum/web3.py/issues/2283>`__
-
-
-v5.25.0 (2021-11-19)
---------------------
-
-Features
-~~~~~~~~
-
-- Support for ``w3.eth.get_raw_transaction_by_block``, and async support for
-  ``w3.eth.get_raw_transaction_by_block`` (`#2209
-  <https://github.com/ethereum/web3.py/issues/2209>`__)
-
-
-Bugfixes
-~~~~~~~~
-
-- BadResponseFormat error thrown instead of KeyError when a response gets sent
-  back without a ``result`` key. (`#2188
-  <https://github.com/ethereum/web3.py/issues/2188>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Correct link to Websocket library documentation (`#2173
-  <https://github.com/ethereum/web3.py/issues/2173>`__)
-- Doc update to make it clearer that enable_unstable_package_management()
-  method is on the web3 instance (`#2208
-  <https://github.com/ethereum/web3.py/issues/2208>`__)
-
-
-Misc
-~~~~
-
-- `#2102 <https://github.com/ethereum/web3.py/issues/2102>`__, `#2179
-  <https://github.com/ethereum/web3.py/issues/2179>`__, `#2191
-  <https://github.com/ethereum/web3.py/issues/2191>`__, `#2201
-  <https://github.com/ethereum/web3.py/issues/2201>`__, `#2205
-  <https://github.com/ethereum/web3.py/issues/2205>`__, `#2212
-  <https://github.com/ethereum/web3.py/issues/2212>`__
-
-
-v5.24.0 (2021-09-27)
---------------------
-
-Features
-~~~~~~~~
-
-- Add async ``eth.send_raw_transaction`` method (`#2135
-  <https://github.com/ethereum/web3.py/issues/2135>`__)
-- Updated eth-account version to v0.5.6 - adds support for signing typed
-  transactions without needing to explicitly set the transaction type and now
-  accepts correct JSON-RPC structure for accessList for typed transactions
-  (`#2157 <https://github.com/ethereum/web3.py/issues/2157>`__)
-
-
-Bugfixes
-~~~~~~~~
-
-- Encode block_count as hex before making eth_feeHistory RPC call (`#2117
-  <https://github.com/ethereum/web3.py/issues/2117>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Fix typo in AsyncHTTPProvider docs (`#2131
-  <https://github.com/ethereum/web3.py/issues/2131>`__)
-- Update AsyncHTTPProvider doc Supported Methods to include
-  ``web3.eth.send_raw_transaction()``. (`#2135
-  <https://github.com/ethereum/web3.py/issues/2135>`__)
-- Improve messaging around usage and implementation questions, directing users
-  to the appropriate channel (`#2138
-  <https://github.com/ethereum/web3.py/issues/2138>`__)
-- Clarify some contract ``ValueError`` error messages. (`#2146
-  <https://github.com/ethereum/web3.py/issues/2146>`__)
-- Updated docs for w3.eth.account.sign_transaction to reflect that transaction
-  type is no longer needed to successfully sign typed transactions and to
-  illustrate how to structure an optional accessList parameter in a typed
-  transaction (`#2157 <https://github.com/ethereum/web3.py/issues/2157>`__)
-
-
-Misc
-~~~~
-
-- `#2105 <https://github.com/ethereum/web3.py/issues/2105>`__
-
-
-v5.23.1 (2021-08-27)
---------------------
-
-Features
-~~~~~~~~
-
-- Add constants for the zero address, zero hash, max int, and wei per ether. (`#2109 <https://github.com/ethereum/web3.py/issues/2109>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Renamed "1559 transaction" to "dynamic fee transaction" where appropriate to keep consistency among the general code base for 1559 transaction (type=2) naming (`#2118 <https://github.com/ethereum/web3.py/issues/2118>`__)
-- Update AsyncHTTPProvider doc example to include modules and middlewares keyword arguments (`#2123 <https://github.com/ethereum/web3.py/issues/2123>`__)
-
-
-Misc
-~~~~
-
-- `#2110 <https://github.com/ethereum/web3.py/issues/2110>`__, `#2118 <https://github.com/ethereum/web3.py/issues/2118>`__, `#2122 <https://github.com/ethereum/web3.py/issues/2122>`__
-
-
-v5.23.0 (2021-08-12)
---------------------
-
-Features
-~~~~~~~~
-
-- Add support for eth_feeHistory RPC method (`#2038 <https://github.com/ethereum/web3.py/issues/2038>`__)
-- Add support for eth_maxPriorityFeePerGas RPC method (`#2100 <https://github.com/ethereum/web3.py/issues/2100>`__)
-
-
-Bugfixes
-~~~~~~~~
-
-- Hot fix for string interpolation issue with contract function call decoding exception to facilitate extracting a meaningful message from the eth_call response (`#2096 <https://github.com/ethereum/web3.py/issues/2096>`__)
-- Bypass adding a ``gasPrice`` via the gas price strategy, if one is set, when EIP-1559 transaction params are used for ``send_transaction`` (`#2099 <https://github.com/ethereum/web3.py/issues/2099>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Update feeHistory docs (`#2104 <https://github.com/ethereum/web3.py/issues/2104>`__)
-
-
 v5.22.0 (2021-08-02)
 --------------------
+Web3 5.22.0 (2021-08-02)
+------------------------
 
 Features
 ~~~~~~~~
@@ -288,6 +42,8 @@ Misc
 
 v5.21.0 (2021-07-12)
 --------------------
+Web3 5.21.0 (2021-07-12)
+------------------------
 
 Features
 ~~~~~~~~
@@ -314,6 +70,8 @@ Improved Documentation
 
 v5.20.1 (2021-07-01)
 --------------------
+Web3 5.20.1 (2021-07-01)
+------------------------
 
 Bugfixes
 ~~~~~~~~
@@ -339,6 +97,8 @@ Misc
 
 v5.20.0 (2021-06-09)
 --------------------
+Web3 5.20.0 (2021-06-09)
+------------------------
 
 Features
 ~~~~~~~~
@@ -376,6 +136,8 @@ Misc
 
 v5.19.0 (2021-04-28)
 --------------------
+Web3 5.19.0 (2021-04-28)
+------------------------
 
 Features
 ~~~~~~~~
@@ -408,6 +170,8 @@ Misc
 
 v5.18.0 (2021-04-08)
 --------------------
+Web3 5.18.0 (2021-04-08)
+------------------------
 
 Features
 ~~~~~~~~

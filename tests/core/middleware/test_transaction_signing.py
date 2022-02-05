@@ -14,9 +14,6 @@ from eth_utils import (
     to_bytes,
     to_hex,
 )
-from eth_utils.exceptions import (
-    ValidationError as EthUtilsValidationError,
-)
 from eth_utils.toolz import (
     assoc,
     dissoc,
@@ -152,7 +149,7 @@ def test_sign_and_send_raw_middleware(
         'to': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         'from': from_,
         'gas': 21000,
-        'gasPrice': 10 ** 9,
+        'gasPrice': 0,
         'value': 1,
         'nonce': 0
     }
@@ -164,26 +161,20 @@ def test_sign_and_send_raw_middleware(
         actual = w3_dummy.manager.request_blocking(method, [legacy_transaction])
         assert_method_and_txn_signed(actual, expected)
 
-        # assert with dynamic fee transaction params and explicit type
-        dynamic_fee_transaction = dissoc(legacy_transaction, 'gasPrice')
-        dynamic_fee_transaction = assoc(dynamic_fee_transaction, 'maxFeePerGas', 2000000000)
-        dynamic_fee_transaction = assoc(dynamic_fee_transaction, 'maxPriorityFeePerGas', 1000000000)
-        dynamic_fee_transaction = assoc(dynamic_fee_transaction, 'type', '0x2')
+        # assert with 1559 transaction params and explicit type
+        transaction_1559 = dissoc(legacy_transaction, 'gasPrice')
+        transaction_1559 = assoc(transaction_1559, 'maxFeePerGas', 2000000000)
+        transaction_1559 = assoc(transaction_1559, 'maxPriorityFeePerGas', 1000000000)
+        transaction_1559 = assoc(transaction_1559, 'type', '0x2')
 
-        actual_dynamic_fee_call = w3_dummy.manager.request_blocking(
-            method,
-            [dynamic_fee_transaction]
-        )
-        assert_method_and_txn_signed(actual_dynamic_fee_call, expected)
+        actual_1559 = w3_dummy.manager.request_blocking(method, [transaction_1559])
+        assert_method_and_txn_signed(actual_1559, expected)
 
-        # assert with dynamic fee transaction params and no explicit type
-        dynamic_fee_transaction_no_type = dissoc(dynamic_fee_transaction, 'type')
+        # assert with 1559 transaction params and no explicit type
+        transaction_1559_no_type = dissoc(transaction_1559, 'type')
 
-        actual_dynamic_fee_call_no_type = w3_dummy.manager.request_blocking(
-            method,
-            [dynamic_fee_transaction_no_type]
-        )
-        assert_method_and_txn_signed(actual_dynamic_fee_call_no_type, expected)
+        actual_1559_no_type = w3_dummy.manager.request_blocking(method, [transaction_1559_no_type])
+        assert_method_and_txn_signed(actual_1559_no_type, expected)
 
 
 def assert_method_and_txn_signed(actual, expected):
@@ -241,7 +232,7 @@ def fund_account(w3):
         (
             {
                 'gas': 21000,
-                'gasPrice': 10 ** 9,
+                'gasPrice': 0,
                 'value': 1
             },
             -1,
@@ -276,35 +267,30 @@ def fund_account(w3):
             '0x0000',
         ),
         (
-            {
-                'gas': 21000,
-                'gasPrice': 0,
-                'value': 1
-            },
-            EthUtilsValidationError,
-            MIXED_KEY_MIXED_TYPE,
-            ADDRESS_1,
-        ),
-        (
+            # TODO: Once eth-tester supports 1559 params, this test should fail and we will need to
+            #  update this to appropriately test 'maxFeePerGas' and 'maxPriorityFeePerGas' as
+            #  well as the transaction 'type'
             {
                 'type': '0x2',
                 'value': 22,
                 'maxFeePerGas': 2000000000,
-                'maxPriorityFeePerGas': 10 ** 9,
+                'maxPriorityFeePerGas': 1000000000,
             },
-            -1,
+            ValidationError,
             SAME_KEY_MIXED_TYPE,
-            ADDRESS_1,
+            ADDRESS_2,
         ),
         (
+            # TODO: eth-tester support for 1559 message above applies to this test as well.
+            # type should default to '0x2` and send successfully based on 1559 fields being present
             {
                 'value': 22,
-                'maxFeePerGas': 20 ** 9,
-                'maxPriorityFeePerGas': 10 ** 9,
+                'maxFeePerGas': 2000000000,
+                'maxPriorityFeePerGas': 1000000000,
             },
-            -1,
+            ValidationError,
             SAME_KEY_MIXED_TYPE,
-            ADDRESS_1,
+            ADDRESS_2,
         )
     ),
     ids=[
@@ -312,9 +298,8 @@ def fund_account(w3):
         'with no set gas',
         'with mismatched sender',
         'with invalid sender',
-        'with gasPrice lower than base fee',
-        'with txn type and dynamic fee txn params',
-        'with dynamic fee txn params and no type',
+        'with txn type and 1559 fees',
+        'with 1559 fees and no type',
     ]
 )
 def test_signed_transaction(

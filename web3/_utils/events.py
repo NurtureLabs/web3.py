@@ -55,7 +55,6 @@ from web3._utils.abi import (
     exclude_indexed_event_inputs,
     get_abi_input_names,
     get_indexed_event_inputs,
-    get_normalized_abi_arg_type,
     map_abi_data,
     normalize_event_input_types,
 )
@@ -194,7 +193,7 @@ def get_event_abi_types_for_decoding(event_inputs: Sequence[ABIEventParams]) -> 
         if input_abi['indexed'] and is_dynamic_sized_type(input_abi['type']):
             yield 'bytes32'
         else:
-            yield get_normalized_abi_arg_type(input_abi)
+            yield input_abi['type']
 
 
 @curry
@@ -431,12 +430,9 @@ def _build_argument_filters_from_event_abi(
         key = item['name']
         value: 'BaseArgumentFilter'
         if item['indexed'] is True:
-            value = TopicArgumentFilter(
-                abi_codec=abi_codec,
-                arg_type=get_normalized_abi_arg_type(item)
-            )
+            value = TopicArgumentFilter(abi_codec=abi_codec, arg_type=item['type'])
         else:
-            value = DataArgumentFilter(arg_type=get_normalized_abi_arg_type(item))
+            value = DataArgumentFilter(arg_type=item['type'])
         yield key, value
 
 
@@ -482,7 +478,7 @@ class DataArgumentFilter(BaseArgumentFilter):
     # type ignore b/c conflict with BaseArgumentFilter.match_values type
     @property
     def match_values(self) -> Tuple[TypeStr, Tuple[Any, ...]]:  # type: ignore
-        return self.arg_type, self._match_values
+        return (self.arg_type, self._match_values)
 
 
 class TopicArgumentFilter(BaseArgumentFilter):

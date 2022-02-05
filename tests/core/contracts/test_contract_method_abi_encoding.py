@@ -1,9 +1,6 @@
 import json
 import pytest
 
-from web3 import (
-    constants,
-)
 from web3.exceptions import (
     ValidationError,
 )
@@ -128,7 +125,7 @@ def test_contract_abi_encoding_strict_with_error(w3_strict_abi, arguments):
         ),
         pytest.param(
             ABI_C,
-            [constants.HASH_ZERO],
+            ['0x0000000000000000000000000000000000000000000000000000000000000000'],
             None,
             '0x9f3fab580000000000000000000000000000000000000000000000000000000000000000',
             id='ABI_C, valid hexstring args, no data'

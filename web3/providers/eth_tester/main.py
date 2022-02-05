@@ -4,7 +4,6 @@ from typing import (
     Callable,
     Dict,
     Optional,
-    Union,
 )
 
 from eth_abi import (
@@ -35,10 +34,7 @@ from .middleware import (
 
 if TYPE_CHECKING:
     from eth_tester import (  # noqa: F401
-        EthereumTester
-    )
-    from eth_tester.backends.base import (  # noqa: F401
-        BaseChainBackend
+        EthereumTester,
     )
 
 
@@ -62,7 +58,7 @@ class EthereumTesterProvider(BaseProvider):
 
     def __init__(
         self,
-        ethereum_tester: Optional[Union["EthereumTester", "BaseChainBackend"]] = None,
+        ethereum_tester: Optional["EthereumTester"] = None,
         api_endpoints: Optional[Dict[str, Dict[str, Callable[..., RPCResponse]]]] = None
     ) -> None:
         # do not import eth_tester until runtime, it is not a default dependency
