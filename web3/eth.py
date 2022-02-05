@@ -1,3 +1,4 @@
+import asyncio
 from typing import (
     Any,
     Awaitable,
@@ -48,6 +49,10 @@ from web3._utils.empty import (
 from web3._utils.encoding import (
     to_hex,
 )
+from web3._utils.fee_utils import (
+    async_fee_history_priority_fee,
+    fee_history_priority_fee,
+)
 from web3._utils.filters import (
     select_filter_method,
 )
@@ -62,7 +67,6 @@ from web3._utils.transactions import (
     extract_valid_transaction_params,
     get_required_transaction,
     replace_transaction,
-    wait_for_transaction_receipt,
 )
 from web3.contract import (
     ConciseContract,
@@ -71,6 +75,7 @@ from web3.contract import (
 )
 from web3.exceptions import (
     TimeExhausted,
+    TransactionNotFound,
 )
 from web3.iban import (
     Iban,
@@ -116,7 +121,6 @@ class BaseEth(Module):
         mungers=None,
     )
 
-    """ property default_block """
     @property
     def default_block(self) -> BlockIdentifier:
         return self._default_block
@@ -126,8 +130,44 @@ class BaseEth(Module):
         self._default_block = value
 
     @property
+    def defaultBlock(self) -> BlockIdentifier:
+        warnings.warn(
+            'defaultBlock is deprecated in favor of default_block',
+            category=DeprecationWarning,
+        )
+        return self._default_block
+
+    @defaultBlock.setter
+    def defaultBlock(self, value: BlockIdentifier) -> None:
+        warnings.warn(
+            'defaultBlock is deprecated in favor of default_block',
+            category=DeprecationWarning,
+        )
+        self._default_block = value
+
+    @property
     def default_account(self) -> Union[ChecksumAddress, Empty]:
         return self._default_account
+
+    @default_account.setter
+    def default_account(self, account: Union[ChecksumAddress, Empty]) -> None:
+        self._default_account = account
+
+    @property
+    def defaultAccount(self) -> Union[ChecksumAddress, Empty]:
+        warnings.warn(
+            'defaultAccount is deprecated in favor of default_account',
+            category=DeprecationWarning,
+        )
+        return self._default_account
+
+    @defaultAccount.setter
+    def defaultAccount(self, account: Union[ChecksumAddress, Empty]) -> None:
+        warnings.warn(
+            'defaultAccount is deprecated in favor of default_account',
+            category=DeprecationWarning,
+        )
+        self._default_account = account
 
     def send_transaction_munger(self, transaction: TxParams) -> Tuple[TxParams]:
         if 'from' not in transaction and is_checksum_address(self.default_account):
@@ -140,6 +180,11 @@ class BaseEth(Module):
         mungers=[send_transaction_munger]
     )
 
+    _send_raw_transaction: Method[Callable[[Union[HexStr, bytes]], HexBytes]] = Method(
+        RPC.eth_sendRawTransaction,
+        mungers=[default_root_munger],
+    )
+
     _get_transaction: Method[Callable[[_Hash32], TxData]] = Method(
         RPC.eth_getTransactionByHash,
         mungers=[default_root_munger]
@@ -147,6 +192,19 @@ class BaseEth(Module):
 
     _get_raw_transaction: Method[Callable[[_Hash32], HexBytes]] = Method(
         RPC.eth_getRawTransactionByHash,
+        mungers=[default_root_munger]
+    )
+
+    """
+    `eth_getRawTransactionByBlockHashAndIndex`
+    `eth_getRawTransactionByBlockNumberAndIndex`
+    """
+    _get_raw_transaction_by_block: Method[Callable[[BlockIdentifier, int], HexBytes]] = Method(
+        method_choice_depends_on_args=select_method_for_block_identifier(
+            if_predefined=RPC.eth_getRawTransactionByBlockNumberAndIndex,
+            if_hash=RPC.eth_getRawTransactionByBlockHashAndIndex,
+            if_number=RPC.eth_getRawTransactionByBlockNumberAndIndex,
+        ),
         mungers=[default_root_munger]
     )
 
@@ -244,9 +302,57 @@ class BaseEth(Module):
         else:
             return (transaction, block_identifier, state_override)
 
+    _get_accounts: Method[Callable[[], Tuple[ChecksumAddress]]] = Method(
+        RPC.eth_accounts,
+        mungers=None,
+    )
+
+    _get_hashrate: Method[Callable[[], int]] = Method(
+        RPC.eth_hashrate,
+        mungers=None,
+    )
+
+    _chain_id: Method[Callable[[], int]] = Method(
+        RPC.eth_chainId,
+        mungers=None,
+    )
+
+    _is_mining: Method[Callable[[], bool]] = Method(
+        RPC.eth_mining,
+        mungers=None,
+    )
+
+    _is_syncing: Method[Callable[[], Union[SyncStatus, bool]]] = Method(
+        RPC.eth_syncing,
+        mungers=None,
+    )
+
+    _get_transaction_receipt: Method[Callable[[_Hash32], TxReceipt]] = Method(
+        RPC.eth_getTransactionReceipt,
+        mungers=[default_root_munger]
+    )
+
 
 class AsyncEth(BaseEth):
     is_async = True
+
+    @property
+    async def accounts(self) -> Tuple[ChecksumAddress]:
+        return await self._get_accounts()  # type: ignore
+
+    @property
+    async def block_number(self) -> BlockNumber:
+        # types ignored b/c mypy conflict with BlockingEth properties
+        return await self.get_block_number()  # type: ignore
+
+    @property
+    async def chain_id(self) -> int:
+        return await self._chain_id()  # type: ignore
+
+    @property
+    async def coinbase(self) -> ChecksumAddress:
+        # types ignored b/c mypy conflict with BlockingEth properties
+        return await self.get_coinbase()  # type: ignore
 
     @property
     async def gas_price(self) -> Wei:
@@ -254,8 +360,31 @@ class AsyncEth(BaseEth):
         return await self._gas_price()  # type: ignore
 
     @property
+    async def hashrate(self) -> int:
+        return await self._get_hashrate()  # type: ignore
+
+    @property
     async def max_priority_fee(self) -> Wei:
-        return await self._max_priority_fee()  # type: ignore
+        """
+        Try to use eth_maxPriorityFeePerGas but, since this is not part of the spec and is only
+        supported by some clients, fall back to an eth_feeHistory calculation with min and max caps.
+        """
+        try:
+            return await self._max_priority_fee()  # type: ignore
+        except ValueError:
+            warnings.warn(
+                "There was an issue with the method eth_maxPriorityFeePerGas. Calculating using "
+                "eth_feeHistory."
+            )
+            return await async_fee_history_priority_fee(self)
+
+    @property
+    async def mining(self) -> bool:
+        return await self._is_mining()  # type: ignore
+
+    @property
+    async def syncing(self) -> Union[SyncStatus, bool]:
+        return await self._is_syncing()  # type: ignore
 
     async def fee_history(
             self,
@@ -270,6 +399,10 @@ class AsyncEth(BaseEth):
         # types ignored b/c mypy conflict with BlockingEth properties
         return await self._send_transaction(transaction)  # type: ignore
 
+    async def send_raw_transaction(self, transaction: Union[HexStr, bytes]) -> HexBytes:
+        # types ignored b/c mypy conflict with BlockingEth properties
+        return await self._send_raw_transaction(transaction)  # type: ignore
+
     async def get_transaction(self, transaction_hash: _Hash32) -> TxData:
         # types ignored b/c mypy conflict with BlockingEth properties
         return await self._get_transaction(transaction_hash)  # type: ignore
@@ -277,6 +410,12 @@ class AsyncEth(BaseEth):
     async def get_raw_transaction(self, transaction_hash: _Hash32) -> TxData:
         # types ignored b/c mypy conflict with BlockingEth properties
         return await self._get_raw_transaction(transaction_hash)  # type: ignore
+
+    async def get_raw_transaction_by_block(
+        self, block_identifier: BlockIdentifier, index: int
+    ) -> HexBytes:
+        # types ignored b/c mypy conflict with BlockingEth properties
+        return await self._get_raw_transaction_by_block(block_identifier, index)  # type: ignore
 
     async def generate_gas_price(
         self, transaction_params: Optional[TxParams] = None
@@ -296,16 +435,6 @@ class AsyncEth(BaseEth):
     ) -> BlockData:
         # types ignored b/c mypy conflict with BlockingEth properties
         return await self._get_block(block_identifier, full_transactions)  # type: ignore
-
-    @property
-    async def block_number(self) -> BlockNumber:
-        # types ignored b/c mypy conflict with BlockingEth properties
-        return await self.get_block_number()  # type: ignore
-
-    @property
-    async def coinbase(self) -> ChecksumAddress:
-        # types ignored b/c mypy conflict with BlockingEth properties
-        return await self.get_coinbase()  # type: ignore
 
     _get_balance: Method[Callable[..., Awaitable[Wei]]] = Method(
         RPC.eth_getBalance,
@@ -331,6 +460,17 @@ class AsyncEth(BaseEth):
     ) -> HexBytes:
         return await self._get_code(account, block_identifier)
 
+    _get_logs: Method[Callable[[FilterParams], Awaitable[List[LogReceipt]]]] = Method(
+        RPC.eth_getLogs,
+        mungers=[default_root_munger]
+    )
+
+    async def get_logs(
+        self,
+        filter_params: FilterParams,
+    ) -> List[LogReceipt]:
+        return await self._get_logs(filter_params)
+
     _get_transaction_count: Method[Callable[..., Awaitable[Nonce]]] = Method(
         RPC.eth_getTransactionCount,
         mungers=[BaseEth.block_id_munger],
@@ -348,6 +488,37 @@ class AsyncEth(BaseEth):
         mungers=[BaseEth.call_munger]
     )
 
+    async def get_transaction_receipt(
+        self, transaction_hash: _Hash32
+    ) -> TxReceipt:
+        return await self._get_transaction_receipt(transaction_hash)  # type: ignore
+
+    async def wait_for_transaction_receipt(
+        self, transaction_hash: _Hash32, timeout: float = 120, poll_latency: float = 0.1
+    ) -> TxReceipt:
+        async def _wait_for_tx_receipt_with_timeout(
+            _tx_hash: _Hash32, _poll_latence: float
+        ) -> TxReceipt:
+            while True:
+                try:
+                    tx_receipt = await self._get_transaction_receipt(_tx_hash)  # type: ignore
+                except TransactionNotFound:
+                    tx_receipt = None
+                if tx_receipt is not None:
+                    break
+                await asyncio.sleep(poll_latency)
+            return tx_receipt
+        try:
+            return await asyncio.wait_for(
+                _wait_for_tx_receipt_with_timeout(transaction_hash, poll_latency),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            raise TimeExhausted(
+                f"Transaction {HexBytes(transaction_hash) !r} is not in the chain "
+                f"after {timeout} seconds"
+            )
+
     async def call(
         self,
         transaction: TxParams,
@@ -357,7 +528,7 @@ class AsyncEth(BaseEth):
         return await self._call(transaction, block_identifier, state_override)
 
 
-class Eth(BaseEth, Module):
+class Eth(BaseEth):
     account = Account()
     defaultContractFactory: Type[Union[Contract, ConciseContract, ContractCaller]] = Contract  # noqa: E704,E501
     iban = Iban
@@ -389,36 +560,21 @@ class Eth(BaseEth, Module):
         )
         return self.protocol_version
 
-    is_syncing: Method[Callable[[], Union[SyncStatus, bool]]] = Method(
-        RPC.eth_syncing,
-        mungers=None,
-    )
-
     @property
     def syncing(self) -> Union[SyncStatus, bool]:
-        return self.is_syncing()
+        return self._is_syncing()
 
     @property
     def coinbase(self) -> ChecksumAddress:
         return self.get_coinbase()
 
-    is_mining: Method[Callable[[], bool]] = Method(
-        RPC.eth_mining,
-        mungers=None,
-    )
-
     @property
     def mining(self) -> bool:
-        return self.is_mining()
-
-    get_hashrate: Method[Callable[[], int]] = Method(
-        RPC.eth_hashrate,
-        mungers=None,
-    )
+        return self._is_mining()
 
     @property
     def hashrate(self) -> int:
-        return self.get_hashrate()
+        return self._get_hashrate()
 
     @property
     def gas_price(self) -> Wei:
@@ -432,14 +588,9 @@ class Eth(BaseEth, Module):
         )
         return self.gas_price
 
-    get_accounts: Method[Callable[[], Tuple[ChecksumAddress]]] = Method(
-        RPC.eth_accounts,
-        mungers=None,
-    )
-
     @property
     def accounts(self) -> Tuple[ChecksumAddress]:
-        return self.get_accounts()
+        return self._get_accounts()
 
     @property
     def block_number(self) -> BlockNumber:
@@ -453,11 +604,6 @@ class Eth(BaseEth, Module):
         )
         return self.block_number
 
-    _chain_id: Method[Callable[[], int]] = Method(
-        RPC.eth_chainId,
-        mungers=None,
-    )
-
     @property
     def chain_id(self) -> int:
         return self._chain_id()
@@ -470,55 +616,25 @@ class Eth(BaseEth, Module):
         )
         return self.chain_id
 
-    """ property default_account """
-    @property
-    def default_account(self) -> Union[ChecksumAddress, Empty]:
-        return self._default_account
-
-    @default_account.setter
-    def default_account(self, account: Union[ChecksumAddress, Empty]) -> None:
-        self._default_account = account
-
-    @property
-    def defaultAccount(self) -> Union[ChecksumAddress, Empty]:
-        warnings.warn(
-            'defaultAccount is deprecated in favor of default_account',
-            category=DeprecationWarning,
-        )
-        return self._default_account
-
-    @defaultAccount.setter
-    def defaultAccount(self, account: Union[ChecksumAddress, Empty]) -> None:
-        warnings.warn(
-            'defaultAccount is deprecated in favor of default_account',
-            category=DeprecationWarning,
-        )
-        self._default_account = account
-
     get_balance: Method[Callable[..., Wei]] = Method(
         RPC.eth_getBalance,
         mungers=[BaseEth.block_id_munger],
     )
 
     @property
-    def defaultBlock(self) -> BlockIdentifier:
-        warnings.warn(
-            'defaultBlock is deprecated in favor of default_block',
-            category=DeprecationWarning,
-        )
-        return self._default_block
-
-    @defaultBlock.setter
-    def defaultBlock(self, value: BlockIdentifier) -> None:
-        warnings.warn(
-            'defaultBlock is deprecated in favor of default_block',
-            category=DeprecationWarning,
-        )
-        self._default_block = value
-
-    @property
     def max_priority_fee(self) -> Wei:
-        return self._max_priority_fee()
+        """
+        Try to use eth_maxPriorityFeePerGas but, since this is not part of the spec and is only
+        supported by some clients, fall back to an eth_feeHistory calculation with min and max caps.
+        """
+        try:
+            return self._max_priority_fee()
+        except ValueError:
+            warnings.warn(
+                "There was an issue with the method eth_maxPriorityFeePerGas. Calculating using "
+                "eth_feeHistory."
+            )
+            return fee_history_priority_fee(self)
 
     def get_storage_at_munger(
         self,
@@ -610,6 +726,11 @@ class Eth(BaseEth, Module):
     def get_raw_transaction(self, transaction_hash: _Hash32) -> _Hash32:
         return self._get_raw_transaction(transaction_hash)
 
+    def get_raw_transaction_by_block(
+        self, block_identifier: BlockIdentifier, index: int
+    ) -> HexBytes:
+        return self._get_raw_transaction_by_block(block_identifier, index)
+
     def getTransactionFromBlock(
         self, block_identifier: BlockIdentifier, transaction_index: int
     ) -> NoReturn:
@@ -635,22 +756,30 @@ class Eth(BaseEth, Module):
         return self.wait_for_transaction_receipt(transaction_hash, timeout, poll_latency)
 
     def wait_for_transaction_receipt(
-        self, transaction_hash: _Hash32, timeout: int = 120, poll_latency: float = 0.1
+        self, transaction_hash: _Hash32, timeout: float = 120, poll_latency: float = 0.1
     ) -> TxReceipt:
         try:
-            return wait_for_transaction_receipt(self.web3, transaction_hash, timeout, poll_latency)
+            with Timeout(timeout) as _timeout:
+                while True:
+                    try:
+                        tx_receipt = self._get_transaction_receipt(transaction_hash)
+                    except TransactionNotFound:
+                        tx_receipt = None
+                    if tx_receipt is not None:
+                        break
+                    _timeout.sleep(poll_latency)
+            return tx_receipt
+
         except Timeout:
             raise TimeExhausted(
-                "Transaction {!r} is not in the chain, after {} seconds".format(
-                    HexBytes(transaction_hash),
-                    timeout,
-                )
+                f"Transaction {HexBytes(transaction_hash) !r} is not in the chain "
+                f"after {timeout} seconds"
             )
 
-    get_transaction_receipt: Method[Callable[[_Hash32], TxReceipt]] = Method(
-        RPC.eth_getTransactionReceipt,
-        mungers=[default_root_munger]
-    )
+    def get_transaction_receipt(
+        self, transaction_hash: _Hash32
+    ) -> TxReceipt:
+        return self._get_transaction_receipt(transaction_hash)
 
     get_transaction_count: Method[Callable[..., Nonce]] = Method(
         RPC.eth_getTransactionCount,
@@ -685,10 +814,8 @@ class Eth(BaseEth, Module):
     def send_transaction(self, transaction: TxParams) -> HexBytes:
         return self._send_transaction(transaction)
 
-    send_raw_transaction: Method[Callable[[Union[HexStr, bytes]], HexBytes]] = Method(
-        RPC.eth_sendRawTransaction,
-        mungers=[default_root_munger],
-    )
+    def send_raw_transaction(self, transaction: Union[HexStr, bytes]) -> HexBytes:
+        return self._send_raw_transaction(transaction)
 
     def sign_munger(
         self,
@@ -878,10 +1005,10 @@ class Eth(BaseEth, Module):
     submitWork = DeprecatedMethod(submit_work, 'submitWork', 'submit_work')
     getLogs = DeprecatedMethod(get_logs, 'getLogs', 'get_logs')
     estimateGas = DeprecatedMethod(estimate_gas, 'estimateGas', 'estimate_gas')  # type: ignore
-    sendRawTransaction = DeprecatedMethod(send_raw_transaction,
+    sendRawTransaction = DeprecatedMethod(send_raw_transaction,  # type: ignore
                                           'sendRawTransaction',
                                           'send_raw_transaction')
-    getTransactionReceipt = DeprecatedMethod(get_transaction_receipt,
+    getTransactionReceipt = DeprecatedMethod(get_transaction_receipt,  # type: ignore
                                              'getTransactionReceipt',
                                              'get_transaction_receipt')
     uninstallFilter = DeprecatedMethod(uninstall_filter, 'uninstallFilter', 'uninstall_filter')

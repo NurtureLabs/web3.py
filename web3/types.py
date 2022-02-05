@@ -2,6 +2,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Coroutine,
     Dict,
     List,
     NewType,
@@ -58,6 +59,14 @@ RPCEndpoint = NewType("RPCEndpoint", str)
 Timestamp = NewType("Timestamp", int)
 Wei = NewType('Wei', int)
 Formatters = Dict[RPCEndpoint, Callable[..., Any]]
+
+
+class AccessListEntry(TypedDict):
+    address: HexStr
+    storageKeys: Sequence[HexStr]
+
+
+AccessList = NewType("AccessList", Sequence[AccessListEntry])
 
 
 # todo: move these to eth_typing once web3 is type hinted
@@ -127,13 +136,14 @@ class RPCResponse(TypedDict, total=False):
 
 
 Middleware = Callable[[Callable[[RPCEndpoint, Any], RPCResponse], "Web3"], Any]
+AsyncMiddleware = Callable[[RPCEndpoint, Any], Coroutine[Any, Any, RPCResponse]]
 MiddlewareOnion = NamedElementOnion[str, Middleware]
 
 
 class FormattersDict(TypedDict, total=False):
-    error_formatters: Formatters
-    request_formatters: Formatters
-    result_formatters: Formatters
+    error_formatters: Optional[Formatters]
+    request_formatters: Optional[Formatters]
+    result_formatters: Optional[Formatters]
 
 
 class FilterParams(TypedDict, total=False):
@@ -167,6 +177,7 @@ class LogReceipt(TypedDict):
 
 # syntax b/c "from" keyword not allowed w/ class construction
 TxData = TypedDict("TxData", {
+    "accessList": AccessList,
     "blockHash": HexBytes,
     "blockNumber": BlockNumber,
     "chainId": int,
@@ -198,7 +209,7 @@ TxParams = TypedDict("TxParams", {
     "gas": Wei,
     # legacy pricing
     "gasPrice": Wei,
-    # 1559 pricing
+    # dynamic fee pricing
     "maxFeePerGas": Union[str, Wei],
     "maxPriorityFeePerGas": Union[str, Wei],
     "nonce": Nonce,

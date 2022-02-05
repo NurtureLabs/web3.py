@@ -4,12 +4,21 @@ from tests.utils import (
     get_open_port,
 )
 from web3 import Web3
+from web3._utils.module_testing.go_ethereum_personal_module import (
+    GoEthereumAsyncPersonalModuleTest,
+)
 from web3.eth import (
     AsyncEth,
+)
+from web3.geth import (
+    AsyncGethPersonal,
+    AsyncGethTxPool,
+    Geth,
 )
 from web3.middleware import (
     async_buffered_gas_estimate_middleware,
     async_gas_price_strategy_middleware,
+    async_validation_middleware,
 )
 from web3.net import (
     AsyncNet,
@@ -22,10 +31,12 @@ from .common import (
     GoEthereumAdminModuleTest,
     GoEthereumAsyncEthModuleTest,
     GoEthereumAsyncNetModuleTest,
+    GoEthereumAsyncTxPoolModuleTest,
     GoEthereumEthModuleTest,
     GoEthereumNetModuleTest,
     GoEthereumPersonalModuleTest,
     GoEthereumTest,
+    GoEthereumTxPoolModuleTest,
     GoEthereumVersionModuleTest,
 )
 from .utils import (
@@ -52,7 +63,7 @@ def _geth_command_arguments(rpc_port,
         yield from (
             '--http',
             '--http.port', rpc_port,
-            '--http.api', 'admin,eth,net,web3,personal,miner',
+            '--http.api', 'admin,eth,net,web3,personal,miner,txpool',
             '--ipcdisable',
             '--allow-insecure-unlock'
         )
@@ -85,10 +96,18 @@ async def async_w3(geth_process, endpoint_uri):
     _web3 = Web3(
         AsyncHTTPProvider(endpoint_uri),
         middlewares=[
+            async_buffered_gas_estimate_middleware,
             async_gas_price_strategy_middleware,
-            async_buffered_gas_estimate_middleware
+            async_validation_middleware,
         ],
-        modules={'eth': (AsyncEth,), 'async_net': (AsyncNet,)})
+        modules={'eth': AsyncEth,
+                 'async_net': AsyncNet,
+                 'geth': (Geth,
+                          {'txpool': (AsyncGethTxPool,),
+                           'personal': (AsyncGethPersonal,)}
+                          )
+                 }
+    )
     return _web3
 
 
@@ -132,5 +151,17 @@ class TestGoEthereumPersonalModuleTest(GoEthereumPersonalModuleTest):
     pass
 
 
+class TestGoEthereumAsyncPersonalModuleTest(GoEthereumAsyncPersonalModuleTest):
+    pass
+
+
 class TestGoEthereumAsyncEthModuleTest(GoEthereumAsyncEthModuleTest):
+    pass
+
+
+class TestGoEthereumTxPoolModuleTest(GoEthereumTxPoolModuleTest):
+    pass
+
+
+class TestGoEthereumAsyncTxPoolModuleTest(GoEthereumAsyncTxPoolModuleTest):
     pass
