@@ -82,8 +82,8 @@ class HTTPProvider(JSONBaseProvider):
         }
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        self.logger.debug("Making request HTTP. URI: %s, Method: %s",
-                          self.endpoint_uri, method)
+        self.logger.debug("Making request HTTP. URI: %s, Method: %s, Params: %s",
+                          self.endpoint_uri, method, params)
         request_data = self.encode_rpc_request(method, params)
         raw_response = make_post_request(
             self.endpoint_uri,
@@ -92,6 +92,6 @@ class HTTPProvider(JSONBaseProvider):
         )
         response = self.decode_rpc_response(raw_response)
         self.logger.debug("Getting response HTTP. URI: %s, "
-                          "Method: %s, Response: %s",
-                          self.endpoint_uri, method, response)
+                          "Method: %s, Params: %s, Response: %s",
+                          self.endpoint_uri, method, params, response)
         return response
