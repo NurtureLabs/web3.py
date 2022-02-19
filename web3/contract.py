@@ -144,6 +144,9 @@ from web3.types import (  # noqa: F401
     TxParams,
     TxReceipt,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from web3 import Web3  # noqa: F401
@@ -1487,6 +1490,7 @@ def call_contract_function(
     Helper function for interacting with a contract function using the
     `eth_call` API.
     """
+    logger.debug(f"block_id: {block_id}")
     call_transaction = prepare_transaction(
         address,
         web3,
